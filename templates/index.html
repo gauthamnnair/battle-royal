@@ -128,22 +128,33 @@
         .then(response => response.json())
         .then(data => {
           const playersDiv = document.getElementById('players');
-          playersDiv.innerHTML = "";
+          playersDiv.innerHTML = ""; // Clear old list
+
+          if (data.players.length === 1) { // Only current user is there
+            playersDiv.innerHTML = "<p>No players available to attack.</p>";
+            return;
+          }
+
           data.players.forEach(player => {
-            if (player.user_id !== userId) {
+            if (player.user_id !== userId) { // Skip self
               const playerItem = document.createElement('button');
               playerItem.innerText = `${player.username} (Lives: ${player.lives})`;
               playerItem.onclick = () => attackPlayer(player.user_id);
               playersDiv.appendChild(playerItem);
             }
           });
+
+          // Show the attack selection screen
           document.getElementById('actions').style.display = 'none';
           document.getElementById('playersList').style.display = 'block';
-        });
+        })
+        .catch(error => console.error('Error fetching players:', error));
     }
 
     function attackPlayer(targetId) {
       socket.emit('attack', { attacker_id: userId, target_id: targetId });
+
+      // Redirect to home
       redirectToHome();
     }
 

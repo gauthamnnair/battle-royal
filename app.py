@@ -74,12 +74,25 @@ def check_answer(index, user_id):
             return jsonify({"correct": True})
     return jsonify({"error": "Invalid request"}), 404
 
+@app.route('/get_players', methods=['GET'])
+def get_players():
+    return jsonify({"players": [{"user_id": uid, "username": p["username"], "lives": p["lives"]} for uid, p in players.items()]})
+
 @socketio.on('attack')
 def handle_attack(data):
+    attacker_id = data.get("attacker_id")
     target_id = data.get("target_id")
-    if target_id in players:
-        players[target_id]["lives"] -= 1
-        emit("attack_result", {"target_username": players[target_id]["username"], "new_lives": players[target_id]["lives"]}, broadcast=True)
+
+    if target_id in players and attacker_id in players:
+        players[target_id]["lives"] -= 1  # Reduce one life
+        emit("attack_result", {
+            "target_username": players[target_id]["username"],
+            "new_lives": players[target_id]["lives"]
+        }, broadcast=True)
+
+        # If target has 0 lives, remove them
+        if players[target_id]["lives"] <= 0:
+            del players[target_id]
 
 @socketio.on('buy_vest')
 def handle_buy_vest(data):
