@@ -68,59 +68,56 @@
     }
 
     function loadQuestions() {
-      fetch(`/get_questions/${userId}`)
-        .then(response => response.json())
-        .then(data => {
-          const questionsList = document.getElementById('questionsList');
-          questionsList.innerHTML = "";
-          data.questions.forEach((q, index) => {
-            if (!data.solved.includes(index)) {
-              const questionItem = document.createElement('div');
-              questionItem.className = 'question-item';
-              questionItem.innerText = q;
-              questionItem.onclick = () => selectQuestion(index);
-              questionsList.appendChild(questionItem);
-            }
-          });
-        });
+        fetch(`/get_questions/${userId}`)
+            .then(response => response.json())
+            .then(data => {
+                const questionsList = document.getElementById('questionsList');
+                questionsList.innerHTML = "";
+                data.questions.forEach(q => {  // Now using qid
+                    const questionItem = document.createElement('div');
+                    questionItem.className = 'question-item';
+                    questionItem.innerText = q.question;
+                    questionItem.onclick = () => selectQuestion(q.qid); // Use qid
+                    questionsList.appendChild(questionItem);
+                });
+            });
     }
 
-    function selectQuestion(index) {
-      selectedQuestionIndex = index;
-      document.getElementById('questionSelection').style.display = 'none';
-      document.getElementById('game').style.display = 'block';
+    function selectQuestion(qid) {
+        selectedQuestionIndex = qid; // Store qid
+        document.getElementById('questionSelection').style.display = 'none';
+        document.getElementById('game').style.display = 'block';
 
-      fetch(`/get_selected_question/${index}`)
-        .then(response => response.json())
-        .then(data => {
-          if (data.question) {
-            document.getElementById('selectedQuestion').innerText = data.question;  // Ensure question is displayed
-            document.getElementById('answer').value = ""; // Clear any previous answer input
-          } else {
-            alert('Error loading question.');
-          }
-        })
-        .catch(error => console.error('Error fetching question:', error));
+        fetch(`/get_selected_question/${qid}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.question) {
+                    document.getElementById('selectedQuestion').innerText = data.question;
+                } else {
+                    alert('Error loading question.');
+                }
+            })
+            .catch(error => console.error('Error fetching question:', error));
     }
-
 
     function submitAnswer() {
-      const answer = parseInt(document.getElementById('answer').value);
-      fetch(`/check_answer/${selectedQuestionIndex}/${userId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answer })
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.correct) {
-          solvedQuestions.add(selectedQuestionIndex);
-          document.getElementById('game').style.display = 'none';
-          document.getElementById('actions').style.display = 'block';
-        } else {
-          alert('Incorrect answer. Try again.');
-        }
-      });
+        const answer = parseInt(document.getElementById('answer').value);
+        
+        fetch(`/check_answer/${selectedQuestionIndex}/${userId}`, {  // selectedQuestionIndex now stores qid
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ answer })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.correct) {
+                solvedQuestions.add(selectedQuestionIndex);
+                document.getElementById('game').style.display = 'none';
+                document.getElementById('actions').style.display = 'block';
+            } else {
+                alert('Incorrect answer. Try again.');
+            }
+        });
     }
 
     function attack() {
