@@ -160,7 +160,6 @@
 
     function buyVest() {
       socket.emit('buy_vest', { user_id: userId });
-      redirectToHome();
     }
 
     function redirectToHome() {
@@ -174,8 +173,18 @@
       alert(`Player ${data.target_username} now has ${data.new_lives} lives left.`);
     });
 
+        function buyVest() {
+      socket.emit('buy_vest', { user_id: userId });
+    }
+
     socket.on('vest_bought', (data) => {
-      alert(`You now have ${data.new_vest_count} vests.`);
+        if (data.error) {
+            alert(data.error); // Show error if vest is already bought
+        } else {
+            alert(`You now have ${data.new_vest_count} vest.`);
+            document.querySelector('button[onclick="buyVest()"]').style.display = 'none'; // Hide button
+            redirectToHome(); // Redirect after purchase
+        }
     });
   </script>
 </body>

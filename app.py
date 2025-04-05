@@ -45,6 +45,7 @@ def login():
         "username": username,
         "lives": 3,
         "vest": 0,
+        "vest_bought": False,  # Track if user has ever bought a vest
         "solved_questions": []
     }
     return jsonify({"user_id": user_id, "username": username})
@@ -84,7 +85,11 @@ def handle_attack(data):
     target_id = data.get("target_id")
 
     if target_id in players and attacker_id in players:
-        players[target_id]["lives"] -= 1  # Reduce one life
+        if players[target_id]["vest"] > 0:  # If the target has a vest, destroy it
+            players[target_id]["vest"] = 0
+        else:  # If no vest, reduce lives
+            players[target_id]["lives"] -= 1
+
         emit("attack_result", {
             "target_username": players[target_id]["username"],
             "new_lives": players[target_id]["lives"]
@@ -98,8 +103,12 @@ def handle_attack(data):
 def handle_buy_vest(data):
     user_id = data.get("user_id")
     if user_id in players:
-        players[user_id]["vest"] += 1
-        emit("vest_bought", {"new_vest_count": players[user_id]["vest"]}, room=request.sid)
+        if players[user_id]["vest_bought"]:  # If vest was ever bought, prevent re-purchase
+            emit("vest_bought", {"error": "You can only buy a vest once!"}, room=request.sid)
+        else:
+            players[user_id]["vest"] = 1
+            players[user_id]["vest_bought"] = True  # Mark that they bought a vest
+            emit("vest_bought", {"new_vest_count": players[user_id]["vest"]}, room=request.sid)
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)
