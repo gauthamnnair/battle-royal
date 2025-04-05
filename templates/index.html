@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multiplayer Quiz Game</title>
+  <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    .question-list { margin-top: 20px; }
+    .question-item { cursor: pointer; color: blue; text-decoration: underline; margin-bottom: 5px; }
+    .question-item:hover { color: darkblue; }
+    .hidden { display: none; }
+    .game-section { display: none; margin-top: 20px; }
+    .actions { display: none; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Multiplayer Quiz Game</h1>
+
+  <div id="login">
+    <input type="text" id="username" placeholder="Enter username" />
+    <button onclick="login()">Login</button>
+  </div>
+
+  <div id="questionSelection" style="display: none;">
+    <h2>Select a Question:</h2>
+    <div id="questionsList" class="question-list"></div>
+  </div>
+
+  <div id="game" class="game-section">
+    <h2 id="selectedQuestion"></h2>
+    <input type="number" id="answer" placeholder="Enter your answer" />
+    <button onclick="submitAnswer()">Submit Answer</button>
+  </div>
+
+  <div id="actions" class="actions">
+    <h3>Choose an Action:</h3>
+    <button onclick="attack()">Attack</button>
+    <button onclick="buyVest()">Buy Vest</button>
+  </div>
+
+  <div id="playersList" class="game-section" style="display: none;">
+    <h3>Select a Player to Attack:</h3>
+    <div id="players"></div>
+  </div>
+
+  <script>
+    let userId;
+    let selectedQuestionIndex;
+    let solvedQuestions = new Set();
+    let socket = io();
+
+    function login() {
+      const username = document.getElementById('username').value;
+      fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username })
+      })
+      .then(response => response.json())
+      .then(data => {
+        userId = data.user_id;
+        document.getElementById('login').style.display = 'none';
+        document.getElementById('questionSelection').style.display = 'block';
+        loadQuestions();
+      });
+    }
+
+    function loadQuestions() {
+      fetch(`/get_questions/${userId}`)
+        .then(response => response.json())
+        .then(data => {
+          const questionsList = document.getElementById('questionsList');
+          questionsList.innerHTML = "";
+          data.questions.forEach((q, index) => {
+            if (!data.solved.includes(index)) {
+              const questionItem = document.createElement('div');
+              questionItem.className = 'question-item';
+              questionItem.innerText = q;
+              questionItem.onclick = () => selectQuestion(index);
+              questionsList.appendChild(questionItem);
+            }
+          });
+        });
+    }
+
+    function selectQuestion(index) {
+      selectedQuestionIndex = index;
+      document.getElementById('questionSelection').style.display = 'none';
+      document.getElementById('game').style.display = 'block';
+
+      fetch(`/get_selected_question/${index}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.question) {
+            document.getElementById('selectedQuestion').innerText = data.question;  // Ensure question is displayed
+            document.getElementById('answer').value = ""; // Clear any previous answer input
+          } else {
+            alert('Error loading question.');
+          }
+        })
+        .catch(error => console.error('Error fetching question:', error));
+    }
+
+
+    function submitAnswer() {
+      const answer = parseInt(document.getElementById('answer').value);
+      fetch(`/check_answer/${selectedQuestionIndex}/${userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answer })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.correct) {
+          solvedQuestions.add(selectedQuestionIndex);
+          document.getElementById('game').style.display = 'none';
+          document.getElementById('actions').style.display = 'block';
+        } else {
+          alert('Incorrect answer. Try again.');
+        }
+      });
+    }
+
+    function attack() {
+      fetch('/get_players')
+        .then(response => response.json())
+        .then(data => {
+          const playersDiv = document.getElementById('players');
+          playersDiv.innerHTML = "";
+          data.players.forEach(player => {
+            if (player.user_id !== userId) {
+              const playerItem = document.createElement('button');
+              playerItem.innerText = `${player.username} (Lives: ${player.lives})`;
+              playerItem.onclick = () => attackPlayer(player.user_id);
+              playersDiv.appendChild(playerItem);
+            }
+          });
+          document.getElementById('actions').style.display = 'none';
+          document.getElementById('playersList').style.display = 'block';
+        });
+    }
+
+    function attackPlayer(targetId) {
+      socket.emit('attack', { attacker_id: userId, target_id: targetId });
+      redirectToHome();
+    }
+
+    function buyVest() {
+      socket.emit('buy_vest', { user_id: userId });
+      redirectToHome();
+    }
+
+    function redirectToHome() {
+      document.getElementById('playersList').style.display = 'none';
+      document.getElementById('actions').style.display = 'none';
+      document.getElementById('questionSelection').style.display = 'block';
+      loadQuestions();
+    }
+
+    socket.on('attack_result', (data) => {
+      alert(`Player ${data.target_username} now has ${data.new_lives} lives left.`);
+    });
+
+    socket.on('vest_bought', (data) => {
+      alert(`You now have ${data.new_vest_count} vests.`);
+    });
+  </script>
+</body>
+</html>
